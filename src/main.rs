@@ -1,6 +1,8 @@
 use std::convert::Infallible;
+use std::io::Bytes;
 use std::net::SocketAddr;
 
+use async_std::io::BufReader;
 use async_std::prelude::*;
 use futures::{Future, FutureExt};
 use futures::future::BoxFuture;
@@ -21,7 +23,7 @@ use crate::printer::Charset;
 
 mod printer;
 
-fn print_ipp_request(req: &IppRequestResponse) {
+async fn print_ipp_request(req: &mut IppRequestResponse) {
     println!("IPP Request:");
     let header = req.header();
     println!("OperationStatus (Raw): {:?}", header.operation_status);
@@ -38,6 +40,13 @@ fn print_ipp_request(req: &IppRequestResponse) {
             println!("Attribute: {} = {:?}", entry.0, entry.1);
         }
     }
+
+    println!("Payload:");
+    // Read the payload in full
+    // Note: this consumes the payload from the request. You won't be able to read it again.
+    let mut writer = Vec::<u8>::new();
+    async_std::io::copy(req.payload_mut(), &mut writer).await;
+    println!("{:?}", writer);
 }
 
 fn parse_version(v: IppVersion) -> Result<printer::IppVersion, ()> {
@@ -98,10 +107,10 @@ async fn handle(printer: &Printer, req: Request<Body>) -> Result<Response<Body>,
 
     let (parts, body) = req.into_parts();
     let bytes = body::to_bytes(body).await.unwrap();
-    let parser = IppParser::new(IppReader::new(futures::io::Cursor::new(bytes)));
+    let mut parser = IppParser::new(IppReader::new(futures::io::Cursor::new(bytes)));
     let resp_body = match parser.parse().await {
-        Ok(req) => {
-            let resp = handle_ipp(printer, &req).await;
+        Ok(mut req) => {
+            let resp = handle_ipp(printer, &mut req).await;
             Body::from(resp.to_bytes().to_vec())
         }
         Err(e) => {
@@ -116,8 +125,8 @@ async fn handle(printer: &Printer, req: Request<Body>) -> Result<Response<Body>,
 
 impl Printer {}
 
-async fn handle_ipp(printer: &Printer, req: &IppRequestResponse) -> IppRequestResponse {
-    print_ipp_request(&req);
+async fn handle_ipp(printer: &Printer, req: &mut IppRequestResponse) -> IppRequestResponse {
+    print_ipp_request(req).await;
 
     let operation: Operation = Operation::from_u16(req.header().operation_status).unwrap();
     let response: BoxFuture<Result<IppRequestResponse, Infallible>> =
@@ -231,6 +240,9 @@ async fn handle_validate_job(printer: &Printer, req: &IppRequestResponse) -> Res
         StatusCode::SuccessfulOK,
         header.request_id,
     );
+
+    // TODO: Return same Operation Attributes and Unsupported Attributes as Print-Job operation (but no Job Attributes)
+    // https://tools.ietf.org/html/rfc8011#section-4.2.3
 
     Ok(resp)
 }

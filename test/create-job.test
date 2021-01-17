@@ -1,0 +1,57 @@
+# This file is part of CUPS(tm) which is released under the GNU General Public License ("GPL")
+# and GNU Library General Public License ("LGPL"), Version 2. See file CUPS_LICENSE.txt for full license details.
+
+# 2021-01-17 This file has been modified from the original.
+
+# Print a test page using create-job + send-document
+{
+	# The name of the test...
+	NAME "Print test page using create-job"
+
+	# The resource to use for the POST
+	# RESOURCE /admin
+
+	# The operation to use
+	OPERATION create-job
+
+	# Attributes, starting in the operation group...
+	GROUP operation
+	ATTR charset attributes-charset utf-8
+	ATTR language attributes-natural-language en
+	ATTR uri printer-uri $uri
+	ATTR name requesting-user-name $user
+
+	GROUP job
+	ATTR integer copies 1
+
+	# What statuses are OK?
+	STATUS successful-ok
+
+	# What attributes do we expect?
+	EXPECT job-id
+	EXPECT job-uri
+}
+{
+	# The name of the test...
+	NAME "... and send-document"
+
+	# The resource to use for the POST
+	# RESOURCE /admin
+
+	# The operation to use
+	OPERATION send-document
+
+	# Attributes, starting in the operation group...
+	GROUP operation
+	ATTR charset attributes-charset utf-8
+	ATTR language attributes-natural-language en
+	ATTR uri printer-uri $uri
+	ATTR integer job-id $job-id
+	ATTR name requesting-user-name $user
+	ATTR boolean last-document true
+
+	FILE ../data/testdoc.pdf
+
+	# What statuses are OK?
+	STATUS successful-ok
+}
