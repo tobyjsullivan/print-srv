@@ -123,6 +123,8 @@ async fn handle_ipp(printer: &Printer, req: &IppRequestResponse) -> IppRequestRe
     let response: BoxFuture<Result<IppRequestResponse, Infallible>> =
         if operation == Operation::GetPrinterAttributes {
             handle_get_printer_attributes(printer, req).boxed()
+        } else if operation == Operation::ValidateJob {
+            handle_validate_job(printer, req).boxed()
         } else {
             ipp_response(req).boxed()
         };
@@ -167,46 +169,50 @@ async fn handle_get_printer_attributes(printer: &Printer, req: &IppRequestRespon
         header.request_id,
     );
 
-    // EXPECT charset-configured
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::CharsetConfigured));
-    // EXPECT charset-supported
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::CharsetSupported));
-    // EXPECT compression-supported
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::CompressionSupported));
-    // EXPECT document-format-default
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::DocumentFormatDefault));
-    // EXPECT document-format-supported
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::DocumentFormatSupported));
-    // EXPECT generated-natural-language-supported
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::GeneratedNaturalLanguageSupported));
-    // EXPECT ipp-versions-supported
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::IppVersionsSupported));
-    // EXPECT natural-language-configured
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::NaturalLanguageConfigured));
-    // EXPECT operations-supported
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::OperationsSupported));
-    // EXPECT pdl-override-supported
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PdlOverrideSupported));
-    // EXPECT printer-is-accepting-jobs
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PrinterIsAcceptingJobs));
-    // EXPECT printer-name
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PrinterName));
-    // EXPECT printer-state
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PrinterState));
-    // EXPECT printer-state-reasons
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PrinterStateReasons));
-    // EXPECT printer-up-time
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PrinterUpTime));
-    // EXPECT printer-uri-supported
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PrinterUriSupported));
-    // EXPECT queued-job-count
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::QueuedJobCount));
-    // EXPECT uri-authentication-supported
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::UriAuthenticationSupported));
-    // EXPECT uri-security-supported
-    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::UriSecuritySupported));
+    add_required_printer_attributes(printer, &mut resp);
 
     Ok(resp)
+}
+
+fn add_required_printer_attributes(printer: &Printer, resp: &mut IppRequestResponse) {
+    // EXPECT charset-configured
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::CharsetConfigured));
+    // EXPECT charset-supported
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::CharsetSupported));
+    // EXPECT compression-supported
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::CompressionSupported));
+    // EXPECT document-format-default
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::DocumentFormatDefault));
+    // EXPECT document-format-supported
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::DocumentFormatSupported));
+    // EXPECT generated-natural-language-supported
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::GeneratedNaturalLanguageSupported));
+    // EXPECT ipp-versions-supported
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::IppVersionsSupported));
+    // EXPECT natural-language-configured
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::NaturalLanguageConfigured));
+    // EXPECT operations-supported
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::OperationsSupported));
+    // EXPECT pdl-override-supported
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PdlOverrideSupported));
+    // EXPECT printer-is-accepting-jobs
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PrinterIsAcceptingJobs));
+    // EXPECT printer-name
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PrinterName));
+    // EXPECT printer-state
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PrinterState));
+    // EXPECT printer-state-reasons
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PrinterStateReasons));
+    // EXPECT printer-up-time
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PrinterUpTime));
+    // EXPECT printer-uri-supported
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PrinterUriSupported));
+    // EXPECT queued-job-count
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::QueuedJobCount));
+    // EXPECT uri-authentication-supported
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::UriAuthenticationSupported));
+    // EXPECT uri-security-supported
+    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::UriSecuritySupported));
 }
 
 fn add_attribute(printer: &Printer, res: &mut IppRequestResponse, attr: Attribute) {
@@ -214,6 +220,19 @@ fn add_attribute(printer: &Printer, res: &mut IppRequestResponse, attr: Attribut
     if let Ok(printer_attr) = printer.protofy_attribute(attr) {
         res.attributes_mut().add(delim, printer_attr);
     }
+}
+
+// https://tools.ietf.org/html/rfc8011#section-4.2.3
+async fn handle_validate_job(printer: &Printer, req: &IppRequestResponse) -> Result<IppRequestResponse, Infallible> {
+    // Create the response
+    let header = req.header();
+    let mut resp = IppRequestResponse::new_response(
+        header.version,
+        StatusCode::SuccessfulOK,
+        header.request_id,
+    );
+
+    Ok(resp)
 }
 
 enum Attribute {
