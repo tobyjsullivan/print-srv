@@ -1,5 +1,3 @@
-use crate::printer::Charset;
-
 #[derive(Copy, Clone, Debug)]
 pub enum Compression {
     None,

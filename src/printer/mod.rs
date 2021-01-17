@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 pub use crate::printer::charset::Charset;
 pub use crate::printer::compression::Compression;
 pub use crate::printer::ippversion::IppVersion;
@@ -7,10 +5,9 @@ pub use crate::printer::mimemediatype::MimeMediaType;
 pub use crate::printer::naturallanguage::NaturalLanguage;
 pub use crate::printer::operation::Operation;
 pub use crate::printer::pdloverride::PdlOverride;
-pub use crate::printer::printerstate::PrinterState;
 use crate::printer::printerstate::{PrinterStateReason, PrinterStateReasonKeyword};
+pub use crate::printer::printerstate::PrinterState;
 use crate::printer::uri::{PrinterUri, UriAuthenticationMethod, UriSecurityMethod};
-use crate::PrinterAttribute::{UriAuthenticationSupported, UriSecuritySupported};
 
 mod charset;
 mod compression;

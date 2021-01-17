@@ -1,10 +1,7 @@
 use std::convert::Infallible;
-use std::io::Bytes;
 use std::net::SocketAddr;
 
-use async_std::io::BufReader;
-use async_std::prelude::*;
-use futures::{Future, FutureExt};
+use futures::FutureExt;
 use futures::future::BoxFuture;
 use hyper::{Body, Method, Request, Response, Server};
 use hyper::body;
@@ -14,12 +11,8 @@ use ipp::proto::parser::IppParser;
 use ipp::proto::reader::IppReader;
 use log::{info, trace, warn};
 use num_traits::FromPrimitive;
-use tokio::macros::support::{Pin, Poll};
-use tokio::task;
 
 use printer::Printer;
-
-use crate::printer::Charset;
 
 mod printer;
 
@@ -45,7 +38,7 @@ async fn print_ipp_request(req: &mut IppRequestResponse) {
     // Read the payload in full
     // Note: this consumes the payload from the request. You won't be able to read it again.
     let mut writer = Vec::<u8>::new();
-    async_std::io::copy(req.payload_mut(), &mut writer).await;
+    async_std::io::copy(req.payload_mut(), &mut writer).await.unwrap();
     println!("{:?}", writer);
 }
 
@@ -105,9 +98,9 @@ async fn handle(printer: &Printer, req: Request<Body>) -> Result<Response<Body>,
         return Ok(Response::builder().status(404).body(Body::from("404 Not Found\n")).unwrap());
     }
 
-    let (parts, body) = req.into_parts();
+    let (_parts, body) = req.into_parts();
     let bytes = body::to_bytes(body).await.unwrap();
-    let mut parser = IppParser::new(IppReader::new(futures::io::Cursor::new(bytes)));
+    let parser = IppParser::new(IppReader::new(futures::io::Cursor::new(bytes)));
     let resp_body = match parser.parse().await {
         Ok(mut req) => {
             let resp = handle_ipp(printer, &mut req).await;
@@ -147,17 +140,17 @@ async fn handle_ipp(printer: &Printer, req: &mut IppRequestResponse) -> IppReque
 
 async fn handle_get_printer_attributes(printer: &Printer, req: &IppRequestResponse) -> Result<IppRequestResponse, Infallible> {
     // Find the OperationAttributes attribute group(s)
-    let mut requestedAttrKeywords: Vec<String> = vec![];
+    let mut requested_attr_keywords: Vec<String> = vec![];
     for group in req.attributes().groups_of(DelimiterTag::OperationAttributes) {
         // Find the list of requested attributes
         match group.attributes().get("requested-attributes") {
             Some(attr) => {
                 match attr.value() {
                     IppValue::Array(values) => {
-                        for keywordValue in values {
-                            match keywordValue {
-                                IppValue::Keyword(keyword) => requestedAttrKeywords.push(keyword.clone()),
-                                _ => warn!("Found unexpected value type in requested-attributes: {:?}", keywordValue),
+                        for keyword_value in values {
+                            match keyword_value {
+                                IppValue::Keyword(keyword) => requested_attr_keywords.push(keyword.clone()),
+                                _ => warn!("Found unexpected value type in requested-attributes: {:?}", keyword_value),
                             }
                         }
                     }
@@ -168,7 +161,7 @@ async fn handle_get_printer_attributes(printer: &Printer, req: &IppRequestRespon
         }
     }
 
-    println!("The client has requested these attributes: {}", requestedAttrKeywords.join(","));
+    println!("The client has requested these attributes: {}", requested_attr_keywords.join(","));
 
     // Create the response
     let header = req.header();
