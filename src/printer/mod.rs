@@ -5,15 +5,15 @@ pub use crate::printer::mimemediatype::MimeMediaType;
 pub use crate::printer::naturallanguage::NaturalLanguage;
 pub use crate::printer::operation::Operation;
 pub use crate::printer::pdloverride::PdlOverride;
-use crate::printer::printerstate::{PrinterStateReason, PrinterStateReasonKeyword};
 pub use crate::printer::printerstate::PrinterState;
+use crate::printer::printerstate::{PrinterStateReason, PrinterStateReasonKeyword};
 use crate::printer::uri::{PrinterUri, UriAuthenticationMethod, UriSecurityMethod};
 
 mod charset;
 mod compression;
+mod ippversion;
 mod mimemediatype;
 mod naturallanguage;
-mod ippversion;
 mod operation;
 mod pdloverride;
 mod printerstate;
@@ -55,9 +55,16 @@ impl Default for Printer {
             printer_is_accepting_jobs: true,
             printer_name: String::from("Default Printer Name"),
             printer_state: PrinterState::Idle,
-            printer_state_reasons: vec![PrinterStateReason { keyword: PrinterStateReasonKeyword::None, severity: None }],
+            printer_state_reasons: vec![PrinterStateReason {
+                keyword: PrinterStateReasonKeyword::None,
+                severity: None,
+            }],
             printer_up_time: 1, // TODO: Must increment every second. https://tools.ietf.org/html/rfc8011#section-5.4.29
-            printer_uri_supported: vec![PrinterUri::new("ipp://127.0.0.1:3000/ipp/print", UriAuthenticationMethod::None, UriSecurityMethod::None)],
+            printer_uri_supported: vec![PrinterUri::new(
+                "ipp://127.0.0.1:3000/ipp/print",
+                UriAuthenticationMethod::None,
+                UriSecurityMethod::None,
+            )],
         }
     }
 }

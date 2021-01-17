@@ -1,11 +1,11 @@
 use std::convert::Infallible;
 use std::net::SocketAddr;
 
-use futures::FutureExt;
 use futures::future::BoxFuture;
-use hyper::{Body, Method, Request, Response, Server};
+use futures::FutureExt;
 use hyper::body;
 use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Method, Request, Response, Server};
 use ipp::prelude::*;
 use ipp::proto::parser::IppParser;
 use ipp::proto::reader::IppReader;
@@ -38,7 +38,9 @@ async fn print_ipp_request(req: &mut IppRequestResponse) {
     // Read the payload in full
     // Note: this consumes the payload from the request. You won't be able to read it again.
     let mut writer = Vec::<u8>::new();
-    async_std::io::copy(req.payload_mut(), &mut writer).await.unwrap();
+    async_std::io::copy(req.payload_mut(), &mut writer)
+        .await
+        .unwrap();
     println!("{:?}", writer);
 }
 
@@ -95,7 +97,10 @@ async fn handle(printer: &Printer, req: Request<Body>) -> Result<Response<Body>,
     }
     if req.method() != Method::POST || req.uri().path() != "/ipp/print" {
         println!("Returning: 404 Not Found");
-        return Ok(Response::builder().status(404).body(Body::from("404 Not Found\n")).unwrap());
+        return Ok(Response::builder()
+            .status(404)
+            .body(Body::from("404 Not Found\n"))
+            .unwrap());
     }
 
     let (_parts, body) = req.into_parts();
@@ -138,30 +143,45 @@ async fn handle_ipp(printer: &Printer, req: &mut IppRequestResponse) -> IppReque
     resp
 }
 
-async fn handle_get_printer_attributes(printer: &Printer, req: &IppRequestResponse) -> Result<IppRequestResponse, Infallible> {
+async fn handle_get_printer_attributes(
+    printer: &Printer,
+    req: &IppRequestResponse,
+) -> Result<IppRequestResponse, Infallible> {
     // Find the OperationAttributes attribute group(s)
     let mut requested_attr_keywords: Vec<String> = vec![];
-    for group in req.attributes().groups_of(DelimiterTag::OperationAttributes) {
+    for group in req
+        .attributes()
+        .groups_of(DelimiterTag::OperationAttributes)
+    {
         // Find the list of requested attributes
         match group.attributes().get("requested-attributes") {
-            Some(attr) => {
-                match attr.value() {
-                    IppValue::Array(values) => {
-                        for keyword_value in values {
-                            match keyword_value {
-                                IppValue::Keyword(keyword) => requested_attr_keywords.push(keyword.clone()),
-                                _ => warn!("Found unexpected value type in requested-attributes: {:?}", keyword_value),
+            Some(attr) => match attr.value() {
+                IppValue::Array(values) => {
+                    for keyword_value in values {
+                        match keyword_value {
+                            IppValue::Keyword(keyword) => {
+                                requested_attr_keywords.push(keyword.clone())
                             }
+                            _ => warn!(
+                                "Found unexpected value type in requested-attributes: {:?}",
+                                keyword_value
+                            ),
                         }
                     }
-                    attr => warn!("Found unexpected value attribute value for requested-attributes: {:?}", attr),
                 }
-            }
+                attr => warn!(
+                    "Found unexpected value attribute value for requested-attributes: {:?}",
+                    attr
+                ),
+            },
             None => warn!("Did not find requested-attributes in OperationAttributes group."),
         }
     }
 
-    println!("The client has requested these attributes: {}", requested_attr_keywords.join(","));
+    println!(
+        "The client has requested these attributes: {}",
+        requested_attr_keywords.join(",")
+    );
 
     // Create the response
     let header = req.header();
@@ -178,43 +198,119 @@ async fn handle_get_printer_attributes(printer: &Printer, req: &IppRequestRespon
 
 fn add_required_printer_attributes(printer: &Printer, resp: &mut IppRequestResponse) {
     // EXPECT charset-configured
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::CharsetConfigured));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::CharsetConfigured),
+    );
     // EXPECT charset-supported
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::CharsetSupported));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::CharsetSupported),
+    );
     // EXPECT compression-supported
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::CompressionSupported));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::CompressionSupported),
+    );
     // EXPECT document-format-default
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::DocumentFormatDefault));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::DocumentFormatDefault),
+    );
     // EXPECT document-format-supported
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::DocumentFormatSupported));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::DocumentFormatSupported),
+    );
     // EXPECT generated-natural-language-supported
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::GeneratedNaturalLanguageSupported));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::GeneratedNaturalLanguageSupported),
+    );
     // EXPECT ipp-versions-supported
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::IppVersionsSupported));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::IppVersionsSupported),
+    );
     // EXPECT natural-language-configured
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::NaturalLanguageConfigured));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::NaturalLanguageConfigured),
+    );
     // EXPECT operations-supported
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::OperationsSupported));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::OperationsSupported),
+    );
     // EXPECT pdl-override-supported
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PdlOverrideSupported));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::PdlOverrideSupported),
+    );
     // EXPECT printer-is-accepting-jobs
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PrinterIsAcceptingJobs));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::PrinterIsAcceptingJobs),
+    );
     // EXPECT printer-name
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PrinterName));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::PrinterName),
+    );
     // EXPECT printer-state
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PrinterState));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::PrinterState),
+    );
     // EXPECT printer-state-reasons
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PrinterStateReasons));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::PrinterStateReasons),
+    );
     // EXPECT printer-up-time
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PrinterUpTime));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::PrinterUpTime),
+    );
     // EXPECT printer-uri-supported
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::PrinterUriSupported));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::PrinterUriSupported),
+    );
     // EXPECT queued-job-count
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::QueuedJobCount));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::QueuedJobCount),
+    );
     // EXPECT uri-authentication-supported
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::UriAuthenticationSupported));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::UriAuthenticationSupported),
+    );
     // EXPECT uri-security-supported
-    add_attribute(printer, resp, Attribute::Printer(PrinterAttribute::UriSecuritySupported));
+    add_attribute(
+        printer,
+        resp,
+        Attribute::Printer(PrinterAttribute::UriSecuritySupported),
+    );
 }
 
 fn add_attribute(printer: &Printer, res: &mut IppRequestResponse, attr: Attribute) {
@@ -225,7 +321,10 @@ fn add_attribute(printer: &Printer, res: &mut IppRequestResponse, attr: Attribut
 }
 
 // https://tools.ietf.org/html/rfc8011#section-4.2.3
-async fn handle_validate_job(printer: &Printer, req: &IppRequestResponse) -> Result<IppRequestResponse, Infallible> {
+async fn handle_validate_job(
+    printer: &Printer,
+    req: &IppRequestResponse,
+) -> Result<IppRequestResponse, Infallible> {
     // Create the response
     let header = req.header();
     let mut resp = IppRequestResponse::new_response(
@@ -337,12 +436,10 @@ impl Attribute {
 impl Printer {
     fn protofy_attribute(&self, attribute: Attribute) -> Result<IppAttribute, String> {
         match attribute {
-            Attribute::Printer(PrinterAttribute::CharsetConfigured) => {
-                Ok(IppAttribute::new(
-                    "charset-configured",
-                    IppValue::Charset(String::from(self.charset_configured)),
-                ))
-            }
+            Attribute::Printer(PrinterAttribute::CharsetConfigured) => Ok(IppAttribute::new(
+                "charset-configured",
+                IppValue::Charset(String::from(self.charset_configured)),
+            )),
             Attribute::Printer(PrinterAttribute::CharsetSupported) => {
                 let mut charsets = Vec::<IppValue>::new();
                 for &charset in &self.charset_supported {
@@ -363,12 +460,10 @@ impl Printer {
                     IppValue::Array(compressions),
                 ))
             }
-            Attribute::Printer(PrinterAttribute::DocumentFormatDefault) => {
-                Ok(IppAttribute::new(
-                    "document-format-default",
-                    IppValue::MimeMediaType(String::from(self.document_format_default)),
-                ))
-            }
+            Attribute::Printer(PrinterAttribute::DocumentFormatDefault) => Ok(IppAttribute::new(
+                "document-format-default",
+                IppValue::MimeMediaType(String::from(self.document_format_default)),
+            )),
             Attribute::Printer(PrinterAttribute::DocumentFormatSupported) => {
                 let mut formats = Vec::<IppValue>::new();
                 for &format in &self.document_format_supported {
@@ -415,30 +510,22 @@ impl Printer {
                     IppValue::Array(ops),
                 ))
             }
-            Attribute::Printer(PrinterAttribute::PdlOverrideSupported) => {
-                Ok(IppAttribute::new(
-                    "pdl-override-supported",
-                    IppValue::Keyword(String::from(self.pdl_override_supported)),
-                ))
-            }
-            Attribute::Printer(PrinterAttribute::PrinterIsAcceptingJobs) => {
-                Ok(IppAttribute::new(
-                    "printer-is-accepting-jobs",
-                    IppValue::Boolean(self.printer_is_accepting_jobs),
-                ))
-            }
-            Attribute::Printer(PrinterAttribute::PrinterName) => {
-                Ok(IppAttribute::new(
-                    "printer-name",
-                    IppValue::NameWithoutLanguage(self.printer_name.clone()),
-                ))
-            }
-            Attribute::Printer(PrinterAttribute::PrinterState) => {
-                Ok(IppAttribute::new(
-                    "printer-state",
-                    IppValue::Enum(self.printer_state as i32),
-                ))
-            }
+            Attribute::Printer(PrinterAttribute::PdlOverrideSupported) => Ok(IppAttribute::new(
+                "pdl-override-supported",
+                IppValue::Keyword(String::from(self.pdl_override_supported)),
+            )),
+            Attribute::Printer(PrinterAttribute::PrinterIsAcceptingJobs) => Ok(IppAttribute::new(
+                "printer-is-accepting-jobs",
+                IppValue::Boolean(self.printer_is_accepting_jobs),
+            )),
+            Attribute::Printer(PrinterAttribute::PrinterName) => Ok(IppAttribute::new(
+                "printer-name",
+                IppValue::NameWithoutLanguage(self.printer_name.clone()),
+            )),
+            Attribute::Printer(PrinterAttribute::PrinterState) => Ok(IppAttribute::new(
+                "printer-state",
+                IppValue::Enum(self.printer_state as i32),
+            )),
             Attribute::Printer(PrinterAttribute::PrinterStateReasons) => {
                 let mut reasons = Vec::<IppValue>::new();
                 for &reason in &self.printer_state_reasons {
@@ -449,12 +536,10 @@ impl Printer {
                     IppValue::Array(reasons),
                 ))
             }
-            Attribute::Printer(PrinterAttribute::PrinterUpTime) => {
-                Ok(IppAttribute::new(
-                    "printer-up-time",
-                    IppValue::Integer(self.printer_up_time as i32),
-                ))
-            }
+            Attribute::Printer(PrinterAttribute::PrinterUpTime) => Ok(IppAttribute::new(
+                "printer-up-time",
+                IppValue::Integer(self.printer_up_time as i32),
+            )),
             Attribute::Printer(PrinterAttribute::PrinterUriSupported) => {
                 let mut uris = Vec::<IppValue>::new();
                 for uri in &self.printer_uri_supported {
@@ -465,12 +550,10 @@ impl Printer {
                     IppValue::Array(uris),
                 ))
             }
-            Attribute::Printer(PrinterAttribute::QueuedJobCount) => {
-                Ok(IppAttribute::new(
-                    "queued-job-count",
-                    IppValue::Integer(self.queued_job_count() as i32),
-                ))
-            }
+            Attribute::Printer(PrinterAttribute::QueuedJobCount) => Ok(IppAttribute::new(
+                "queued-job-count",
+                IppValue::Integer(self.queued_job_count() as i32),
+            )),
             Attribute::Printer(PrinterAttribute::UriAuthenticationSupported) => {
                 let mut auth_methods = Vec::<IppValue>::new();
                 for uri in &self.printer_uri_supported {
@@ -522,9 +605,7 @@ async fn main() {
         async move {
             Ok::<_, Infallible>(service_fn(move |req| {
                 let printer = printer.clone();
-                async move {
-                    handle(&printer, req).await
-                }
+                async move { handle(&printer, req).await }
             }))
         }
     });

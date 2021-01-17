@@ -6,7 +6,11 @@ pub struct PrinterUri {
 }
 
 impl PrinterUri {
-    pub fn new(uri: &str, authentication: UriAuthenticationMethod, security: UriSecurityMethod) -> Self {
+    pub fn new(
+        uri: &str,
+        authentication: UriAuthenticationMethod,
+        security: UriSecurityMethod,
+    ) -> Self {
         Self {
             uri: String::from(uri),
             authentication,

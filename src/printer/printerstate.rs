@@ -90,10 +90,14 @@ impl From<PrinterStateReasonKeyword> for String {
             PrinterStateReasonKeyword::FuserUnderTemp => String::from("fuser-under-temp"),
             PrinterStateReasonKeyword::InputTrayMissing => String::from("input-tray-missing"),
             PrinterStateReasonKeyword::InterlockOpen => String::from("interlock-open"),
-            PrinterStateReasonKeyword::InterpreterResourceUnavailable => String::from("interpreter-resource-unavailable"),
+            PrinterStateReasonKeyword::InterpreterResourceUnavailable => {
+                String::from("interpreter-resource-unavailable")
+            }
             PrinterStateReasonKeyword::MarkerSupplyEmpty => String::from("marker-supply-empty"),
             PrinterStateReasonKeyword::MarkerSupplyLow => String::from("marker-supply-low"),
-            PrinterStateReasonKeyword::MarkerWasteAlmostFull => String::from("marker-waste-almost-full"),
+            PrinterStateReasonKeyword::MarkerWasteAlmostFull => {
+                String::from("marker-waste-almost-full")
+            }
             PrinterStateReasonKeyword::MarkerWasteFull => String::from("marker-waste-full"),
             PrinterStateReasonKeyword::MediaEmpty => String::from("media-empty"),
             PrinterStateReasonKeyword::MediaJam => String::from("media-jam"),
@@ -102,7 +106,9 @@ impl From<PrinterStateReasonKeyword> for String {
             PrinterStateReasonKeyword::MovingToPaused => String::from("moving-to-paused"),
             PrinterStateReasonKeyword::OpcLifeOver => String::from("opc-life-over"),
             PrinterStateReasonKeyword::OpcNearEol => String::from("opc-near-eol"),
-            PrinterStateReasonKeyword::OutputAreaAlmostFull => String::from("output-area-almost-full"),
+            PrinterStateReasonKeyword::OutputAreaAlmostFull => {
+                String::from("output-area-almost-full")
+            }
             PrinterStateReasonKeyword::OutputAreaFull => String::from("output-area-full"),
             PrinterStateReasonKeyword::OutputTrayMissing => String::from("output-tray-missing"),
             PrinterStateReasonKeyword::Paused => String::from("paused"),
