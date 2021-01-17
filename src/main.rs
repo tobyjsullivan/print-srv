@@ -27,7 +27,8 @@ fn print_ipp_request(req: &IppRequestResponse) {
     let operation = Operation::from_u16(header.operation_status);
     println!("OperationStatus: {:?}", operation);
     println!("Request ID: {}", header.request_id);
-    println!("Version: {}", header.version.0);
+    let version = parse_version(header.version).unwrap();
+    println!("Version: {}", version);
 
     for attr in req.attributes().groups() {
         println!("Attribute Group:");
@@ -38,6 +39,22 @@ fn print_ipp_request(req: &IppRequestResponse) {
     }
 }
 
+fn parse_version(v: IppVersion) -> Result<printer::IppVersion, ()> {
+    if v.0 == IppVersion::v1_0().0 {
+        Ok(printer::IppVersion::V1_0)
+    } else if v.0 == IppVersion::v1_1().0 {
+            Ok(printer::IppVersion::V1_1)
+    } else if v.0 == IppVersion::v2_0().0 {
+        Ok(printer::IppVersion::V2_0)
+    } else if v.0 == IppVersion::v2_1().0 {
+        Ok(printer::IppVersion::V2_1)
+    } else if v.0 == IppVersion::v2_2().0 {
+        Ok(printer::IppVersion::V2_2)
+    } else {
+        Err(())
+    }
+}
+
 fn print_ipp_response(req: &IppRequestResponse) {
     println!("IPP Request:");
     let header = req.header();
@@ -45,7 +62,8 @@ fn print_ipp_response(req: &IppRequestResponse) {
     let status = StatusCode::from_u16(header.operation_status);
     println!("OperationStatus: {:?}", status);
     println!("Request ID: {}", header.request_id);
-    println!("Version: {}", header.version.0);
+    let version = parse_version(header.version).unwrap();
+    println!("Version: {}", version);
 
     for attr in req.attributes().groups() {
         println!("Attribute Group:");
@@ -159,14 +177,23 @@ async fn handle_get_printer_attributes(printer: &Printer, req: &IppRequestRespon
     // EXPECT document-format-supported
     add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::DocumentFormatSupported));
     // EXPECT generated-natural-language-supported
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::GeneratedNaturalLanguageSupported));
     // EXPECT ipp-versions-supported
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::IppVersionsSupported));
     // EXPECT natural-language-configured
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::NaturalLanguageConfigured));
     // EXPECT operations-supported
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::OperationsSupported));
     // EXPECT pdl-override-supported
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PdlOverrideSupported));
     // EXPECT printer-is-accepting-jobs
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PrinterIsAcceptingJobs));
     // EXPECT printer-name
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PrinterName));
     // EXPECT printer-state
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PrinterState));
     // EXPECT printer-state-reasons
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PrinterStateReasons));
     // EXPECT printer-up-time
     // EXPECT printer-uri-supported
     // EXPECT queued-job-count
@@ -193,6 +220,15 @@ enum PrinterAttribute {
     CompressionSupported,
     DocumentFormatDefault,
     DocumentFormatSupported,
+    GeneratedNaturalLanguageSupported,
+    IppVersionsSupported,
+    NaturalLanguageConfigured,
+    OperationsSupported,
+    PdlOverrideSupported,
+    PrinterIsAcceptingJobs,
+    PrinterName,
+    PrinterState,
+    PrinterStateReasons,
 }
 
 impl Attribute {
@@ -246,6 +282,76 @@ impl Printer {
                 Ok(IppAttribute::new(
                     "document-format-supported",
                     IppValue::Array(formats),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::GeneratedNaturalLanguageSupported) => {
+                let mut languages = Vec::<IppValue>::new();
+                for &lang in &self.generated_natural_language_supported {
+                    languages.push(IppValue::NaturalLanguage(lang.into()));
+                }
+                Ok(IppAttribute::new(
+                    "generated-natural-language-supported",
+                    IppValue::Array(languages),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::IppVersionsSupported) => {
+                let mut versions = Vec::<IppValue>::new();
+                for &ver in &self.ipp_versions_supported {
+                    versions.push(IppValue::Keyword(ver.into()));
+                }
+                Ok(IppAttribute::new(
+                    "ipp-versions-supported",
+                    IppValue::Array(versions),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::NaturalLanguageConfigured) => {
+                Ok(IppAttribute::new(
+                    "natural-language-configured",
+                    IppValue::NaturalLanguage(self.natural_language_configured.into()),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::OperationsSupported) => {
+                let mut ops = Vec::<IppValue>::new();
+                for &op in &self.operations_supported {
+                    ops.push(IppValue::Enum(op as i32))
+                }
+                Ok(IppAttribute::new(
+                    "operations-supported",
+                    IppValue::Array(ops),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::PdlOverrideSupported) => {
+                Ok(IppAttribute::new(
+                    "pdl-override-supported",
+                    IppValue::Keyword(self.pdl_override_supported.into()),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::PrinterIsAcceptingJobs) => {
+                Ok(IppAttribute::new(
+                    "printer-is-accepting-jobs",
+                    IppValue::Boolean(self.printer_is_accepting_jobs),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::PrinterName) => {
+                Ok(IppAttribute::new(
+                    "printer-name",
+                    IppValue::NameWithoutLanguage(self.printer_name.clone()),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::PrinterState) => {
+                Ok(IppAttribute::new(
+                    "printer-state",
+                    IppValue::Enum(self.printer_state as i32),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::PrinterStateReasons) => {
+                let mut reasons = Vec::<IppValue>::new();
+                for &reason in &self.printer_state_reasons {
+                    reasons.push(IppValue::Keyword(reason.into()));
+                }
+                Ok(IppAttribute::new(
+                    "printer-state-reasons",
+                    IppValue::Array(reasons),
                 ))
             }
         }

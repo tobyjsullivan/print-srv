@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Charset {
     Utf8,
 }
