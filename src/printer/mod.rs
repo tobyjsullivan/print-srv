@@ -51,7 +51,7 @@ impl Default for Printer {
             document_format_default: MimeMediaType::Pdf,
             document_format_supported: vec![MimeMediaType::Pdf, MimeMediaType::PlainText],
             generated_natural_language_supported: vec![NaturalLanguage::EN],
-            ipp_versions_supported: vec![IppVersion::V1_1, IppVersion::V2_0, IppVersion::V2_1, IppVersion::V2_2],
+            ipp_versions_supported: vec![IppVersion::V1_1],
             natural_language_configured: NaturalLanguage::EN,
             operations_supported: vec![Operation::PrintJob],
             pdl_override_supported: PdlOverride::Attempted,
