@@ -9,6 +9,8 @@ pub use crate::printer::operation::Operation;
 pub use crate::printer::pdloverride::PdlOverride;
 pub use crate::printer::printerstate::PrinterState;
 use crate::printer::printerstate::{PrinterStateReason, PrinterStateReasonKeyword};
+use crate::printer::uri::{PrinterUri, UriAuthenticationMethod, UriSecurityMethod};
+use crate::PrinterAttribute::{UriAuthenticationSupported, UriSecuritySupported};
 
 mod charset;
 mod compression;
@@ -18,6 +20,7 @@ mod ippversion;
 mod operation;
 mod pdloverride;
 mod printerstate;
+mod uri;
 
 #[derive(Clone, Debug)]
 pub struct Printer {
@@ -35,11 +38,8 @@ pub struct Printer {
     pub printer_name: String,
     pub printer_state: PrinterState,
     pub printer_state_reasons: Vec<PrinterStateReason>,
-    // 	EXPECT printer-up-time
-    // 	EXPECT printer-uri-supported
-    // 	EXPECT queued-job-count
-    // 	EXPECT uri-authentication-supported
-    // 	EXPECT uri-security-supported
+    pub printer_up_time: u32,
+    pub printer_uri_supported: Vec<PrinterUri>,
 }
 
 impl Default for Printer {
@@ -51,7 +51,7 @@ impl Default for Printer {
             document_format_default: MimeMediaType::Pdf,
             document_format_supported: vec![MimeMediaType::Pdf, MimeMediaType::PlainText],
             generated_natural_language_supported: vec![NaturalLanguage::EN],
-            ipp_versions_supported: vec![IppVersion::V1_1, IppVersion::V2_0, IppVersion::V2_1, IppVersion::V2_2],
+            ipp_versions_supported: vec![IppVersion::V1_1, IppVersion::V2_2],
             natural_language_configured: NaturalLanguage::EN,
             operations_supported: vec![Operation::PrintJob],
             pdl_override_supported: PdlOverride::Attempted,
@@ -59,6 +59,16 @@ impl Default for Printer {
             printer_name: String::from("Default Printer Name"),
             printer_state: PrinterState::Idle,
             printer_state_reasons: vec![PrinterStateReason { keyword: PrinterStateReasonKeyword::None, severity: None }],
+            printer_up_time: 1, // TODO: Must increment every second. https://tools.ietf.org/html/rfc8011#section-5.4.29
+            printer_uri_supported: vec![PrinterUri::new("ipp://127.0.0.1:3000/ipp/print", UriAuthenticationMethod::None, UriSecurityMethod::None)],
         }
+    }
+}
+
+impl Printer {
+    pub fn queued_job_count(&self) -> u32 {
+        // TODO: Count pending or processing jobs
+        // https://tools.ietf.org/html/rfc8011#section-5.4.24
+        return 0;
     }
 }

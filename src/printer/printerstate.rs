@@ -14,10 +14,10 @@ pub struct PrinterStateReason {
 impl From<PrinterStateReason> for String {
     fn from(reason: PrinterStateReason) -> Self {
         let severity = match reason.severity {
-            Some(sev) => format!("-{}", Into::<String>::into(sev)),
+            Some(sev) => format!("-{}", String::from(sev)),
             None => String::from(""),
         };
-        format!("{}{}", Into::<String>::into(reason.keyword), severity)
+        format!("{}{}", String::from(reason.keyword), severity)
     }
 }
 

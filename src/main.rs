@@ -16,6 +16,7 @@ use tokio::macros::support::{Pin, Poll};
 use tokio::task;
 
 use printer::Printer;
+
 use crate::printer::Charset;
 
 mod printer;
@@ -43,7 +44,7 @@ fn parse_version(v: IppVersion) -> Result<printer::IppVersion, ()> {
     if v.0 == IppVersion::v1_0().0 {
         Ok(printer::IppVersion::V1_0)
     } else if v.0 == IppVersion::v1_1().0 {
-            Ok(printer::IppVersion::V1_1)
+        Ok(printer::IppVersion::V1_1)
     } else if v.0 == IppVersion::v2_0().0 {
         Ok(printer::IppVersion::V2_0)
     } else if v.0 == IppVersion::v2_1().0 {
@@ -195,17 +196,22 @@ async fn handle_get_printer_attributes(printer: &Printer, req: &IppRequestRespon
     // EXPECT printer-state-reasons
     add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PrinterStateReasons));
     // EXPECT printer-up-time
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PrinterUpTime));
     // EXPECT printer-uri-supported
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::PrinterUriSupported));
     // EXPECT queued-job-count
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::QueuedJobCount));
     // EXPECT uri-authentication-supported
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::UriAuthenticationSupported));
     // EXPECT uri-security-supported
+    add_attribute(printer, &mut resp, Attribute::Printer(PrinterAttribute::UriSecuritySupported));
 
     Ok(resp)
 }
 
 fn add_attribute(printer: &Printer, res: &mut IppRequestResponse, attr: Attribute) {
     let delim = attr.get_delimiter_tag();
-    if let Ok(printer_attr) = printer.get_attribute(attr) {
+    if let Ok(printer_attr) = printer.protofy_attribute(attr) {
         res.attributes_mut().add(delim, printer_attr);
     }
 }
@@ -229,6 +235,11 @@ enum PrinterAttribute {
     PrinterName,
     PrinterState,
     PrinterStateReasons,
+    PrinterUpTime,
+    PrinterUriSupported,
+    QueuedJobCount,
+    UriAuthenticationSupported,
+    UriSecuritySupported,
 }
 
 impl Attribute {
@@ -240,18 +251,18 @@ impl Attribute {
 }
 
 impl Printer {
-    fn get_attribute(&self, attribute: Attribute) -> Result<IppAttribute, String> {
+    fn protofy_attribute(&self, attribute: Attribute) -> Result<IppAttribute, String> {
         match attribute {
             Attribute::Printer(PrinterAttribute::CharsetConfigured) => {
                 Ok(IppAttribute::new(
                     "charset-configured",
-                    IppValue::Charset(self.charset_configured.into()),
+                    IppValue::Charset(String::from(self.charset_configured)),
                 ))
             }
             Attribute::Printer(PrinterAttribute::CharsetSupported) => {
                 let mut charsets = Vec::<IppValue>::new();
                 for &charset in &self.charset_supported {
-                    charsets.push(IppValue::Charset(charset.into()));
+                    charsets.push(IppValue::Charset(String::from(charset)));
                 }
                 Ok(IppAttribute::new(
                     "charset-supported",
@@ -261,7 +272,7 @@ impl Printer {
             Attribute::Printer(PrinterAttribute::CompressionSupported) => {
                 let mut compressions = Vec::<IppValue>::new();
                 for &compression in &self.compression_supported {
-                    compressions.push(IppValue::Keyword(compression.into()))
+                    compressions.push(IppValue::Keyword(String::from(compression)))
                 }
                 Ok(IppAttribute::new(
                     "compression-supported",
@@ -271,13 +282,13 @@ impl Printer {
             Attribute::Printer(PrinterAttribute::DocumentFormatDefault) => {
                 Ok(IppAttribute::new(
                     "document-format-default",
-                    IppValue::MimeMediaType(self.document_format_default.into()),
+                    IppValue::MimeMediaType(String::from(self.document_format_default)),
                 ))
             }
             Attribute::Printer(PrinterAttribute::DocumentFormatSupported) => {
                 let mut formats = Vec::<IppValue>::new();
                 for &format in &self.document_format_supported {
-                    formats.push(IppValue::MimeMediaType(format.into()));
+                    formats.push(IppValue::MimeMediaType(String::from(format)));
                 }
                 Ok(IppAttribute::new(
                     "document-format-supported",
@@ -287,7 +298,7 @@ impl Printer {
             Attribute::Printer(PrinterAttribute::GeneratedNaturalLanguageSupported) => {
                 let mut languages = Vec::<IppValue>::new();
                 for &lang in &self.generated_natural_language_supported {
-                    languages.push(IppValue::NaturalLanguage(lang.into()));
+                    languages.push(IppValue::NaturalLanguage(String::from(lang)));
                 }
                 Ok(IppAttribute::new(
                     "generated-natural-language-supported",
@@ -297,7 +308,7 @@ impl Printer {
             Attribute::Printer(PrinterAttribute::IppVersionsSupported) => {
                 let mut versions = Vec::<IppValue>::new();
                 for &ver in &self.ipp_versions_supported {
-                    versions.push(IppValue::Keyword(ver.into()));
+                    versions.push(IppValue::Keyword(String::from(ver)));
                 }
                 Ok(IppAttribute::new(
                     "ipp-versions-supported",
@@ -307,7 +318,7 @@ impl Printer {
             Attribute::Printer(PrinterAttribute::NaturalLanguageConfigured) => {
                 Ok(IppAttribute::new(
                     "natural-language-configured",
-                    IppValue::NaturalLanguage(self.natural_language_configured.into()),
+                    IppValue::NaturalLanguage(String::from(self.natural_language_configured)),
                 ))
             }
             Attribute::Printer(PrinterAttribute::OperationsSupported) => {
@@ -323,7 +334,7 @@ impl Printer {
             Attribute::Printer(PrinterAttribute::PdlOverrideSupported) => {
                 Ok(IppAttribute::new(
                     "pdl-override-supported",
-                    IppValue::Keyword(self.pdl_override_supported.into()),
+                    IppValue::Keyword(String::from(self.pdl_override_supported)),
                 ))
             }
             Attribute::Printer(PrinterAttribute::PrinterIsAcceptingJobs) => {
@@ -347,11 +358,53 @@ impl Printer {
             Attribute::Printer(PrinterAttribute::PrinterStateReasons) => {
                 let mut reasons = Vec::<IppValue>::new();
                 for &reason in &self.printer_state_reasons {
-                    reasons.push(IppValue::Keyword(reason.into()));
+                    reasons.push(IppValue::Keyword(String::from(reason)));
                 }
                 Ok(IppAttribute::new(
                     "printer-state-reasons",
                     IppValue::Array(reasons),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::PrinterUpTime) => {
+                Ok(IppAttribute::new(
+                    "printer-up-time",
+                    IppValue::Integer(self.printer_up_time as i32),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::PrinterUriSupported) => {
+                let mut uris = Vec::<IppValue>::new();
+                for uri in &self.printer_uri_supported {
+                    uris.push(IppValue::Uri(uri.uri.clone()));
+                }
+                Ok(IppAttribute::new(
+                    "printer-uri-supported",
+                    IppValue::Array(uris),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::QueuedJobCount) => {
+                Ok(IppAttribute::new(
+                    "queued-job-count",
+                    IppValue::Integer(self.queued_job_count() as i32),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::UriAuthenticationSupported) => {
+                let mut auth_methods = Vec::<IppValue>::new();
+                for uri in &self.printer_uri_supported {
+                    auth_methods.push(IppValue::Keyword(String::from(uri.authentication)));
+                }
+                Ok(IppAttribute::new(
+                    "uri-authentication-supported",
+                    IppValue::Array(auth_methods),
+                ))
+            }
+            Attribute::Printer(PrinterAttribute::UriSecuritySupported) => {
+                let mut sec_methods = Vec::<IppValue>::new();
+                for uri in &self.printer_uri_supported {
+                    sec_methods.push(IppValue::Keyword(String::from(uri.security)));
+                }
+                Ok(IppAttribute::new(
+                    "uri-security-supported",
+                    IppValue::Array(sec_methods),
                 ))
             }
         }

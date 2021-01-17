@@ -23,7 +23,7 @@ impl From<IppVersion> for String {
 
 impl Display for IppVersion {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let str: String = (*self).into();
+        let str: String = String::from(*self);
         write!(f, "{}", str)
     }
 }
