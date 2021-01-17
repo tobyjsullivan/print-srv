@@ -21,6 +21,18 @@ impl From<IppVersion> for String {
     }
 }
 
+impl From<IppVersion> for ipp::proto::model::IppVersion {
+    fn from(v: IppVersion) -> Self {
+        match v {
+            IppVersion::V1_0 => ipp::proto::model::IppVersion::v1_0(),
+            IppVersion::V1_1 => ipp::proto::model::IppVersion::v1_1(),
+            IppVersion::V2_0 => ipp::proto::model::IppVersion::v2_0(),
+            IppVersion::V2_1 => ipp::proto::model::IppVersion::v2_1(),
+            IppVersion::V2_2 => ipp::proto::model::IppVersion::v2_2(),
+        }
+    }
+}
+
 impl Display for IppVersion {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let str: String = String::from(*self);
