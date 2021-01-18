@@ -1,6 +1,7 @@
 pub use crate::printer::charset::Charset;
 pub use crate::printer::compression::Compression;
 pub use crate::printer::ippversion::IppVersion;
+pub use crate::printer::job::Job;
 pub use crate::printer::mimemediatype::MimeMediaType;
 pub use crate::printer::naturallanguage::NaturalLanguage;
 pub use crate::printer::operation::Operation;
@@ -12,6 +13,8 @@ use crate::printer::uri::{PrinterUri, UriAuthenticationMethod, UriSecurityMethod
 mod charset;
 mod compression;
 mod ippversion;
+mod job;
+mod jobstate;
 mod mimemediatype;
 mod naturallanguage;
 mod operation;
@@ -19,7 +22,7 @@ mod pdloverride;
 mod printerstate;
 mod uri;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Printer {
     pub charset_configured: Charset,
     pub charset_supported: Vec<Charset>,
@@ -37,6 +40,8 @@ pub struct Printer {
     pub printer_state_reasons: Vec<PrinterStateReason>,
     pub printer_up_time: u32,
     pub printer_uri_supported: Vec<PrinterUri>,
+    pub jobs: Vec<Job>,
+    next_job_id: u32,
 }
 
 impl Default for Printer {
@@ -65,6 +70,8 @@ impl Default for Printer {
                 UriAuthenticationMethod::None,
                 UriSecurityMethod::None,
             )],
+            jobs: Vec::new(),
+            next_job_id: 1,
         }
     }
 }
@@ -74,5 +81,15 @@ impl Printer {
         // TODO: Count pending or processing jobs
         // https://tools.ietf.org/html/rfc8011#section-5.4.24
         return 0;
+    }
+
+    pub fn new_job(&mut self, data: &[u8]) -> Job {
+        let job_id = self.next_job_id;
+        self.next_job_id += 1;
+        let printer_uri = self.printer_uri_supported.get(0).unwrap().uri.clone();
+        let job_uri = format!("{}/{}", printer_uri, job_id);
+        let job = Job::new(job_id, job_uri, data);
+        self.jobs.push(job.clone()); // TODO: Refactor so that we're not cloning Jobs
+        job
     }
 }

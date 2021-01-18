@@ -1,4 +1,4 @@
-pub use attributes::{Attribute, PrinterAttribute};
+pub use attributes::PrinterAttribute;
 pub use builder::IppResponseBuilder;
 
 mod attributes;

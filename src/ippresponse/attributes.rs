@@ -1,6 +1,9 @@
 #[derive(Copy, Clone, Debug)]
-pub enum Attribute {
-    Printer(PrinterAttribute),
+pub enum OperationAttributes {
+    AttributesCharset,
+    AttributesNaturalLanguage,
+    StatusMessage,
+    DetailedStatusMessage,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -84,4 +87,26 @@ pub enum PrinterAttribute {
     // PageRangesSupported,
     // PrinterDeviceId,
     // PrinterMessageFromOperator,
+}
+
+//https://tools.ietf.org/html/rfc8011#section-5.3
+#[derive(Copy, Clone, Debug)]
+pub enum JobAttribute {
+    // IPP/1.1 Attributes
+    JobId,
+    JobUri,
+    JobState,
+    JobStateReasons,
+    // TODO: Add remaining job attributes
+}
+
+impl From<JobAttribute> for String {
+    fn from(a: JobAttribute) -> Self {
+        match a {
+            JobAttribute::JobId => String::from("job-id"),
+            JobAttribute::JobUri => String::from("job-uri"),
+            JobAttribute::JobState => String::from("job-state"),
+            JobAttribute::JobStateReasons => String::from("job-state-reasons"),
+        }
+    }
 }

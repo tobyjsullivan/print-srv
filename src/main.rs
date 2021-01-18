@@ -1,5 +1,7 @@
 use std::convert::Infallible;
 use std::net::SocketAddr;
+use std::ops::Deref;
+use std::sync::{Arc, RwLock};
 
 use futures::future::BoxFuture;
 use futures::FutureExt;
@@ -12,8 +14,9 @@ use ipp::proto::reader::IppReader;
 use log::{info, trace, warn};
 use num_traits::FromPrimitive;
 
-use crate::ippresponse::IppResponseBuilder;
 use printer::Printer;
+
+use crate::ippresponse::IppResponseBuilder;
 
 mod ippresponse;
 mod printer;
@@ -35,15 +38,6 @@ async fn print_ipp_request(req: &mut IppRequestResponse) {
             println!("Attribute: {} = {:?}", entry.0, entry.1);
         }
     }
-
-    println!("Payload:");
-    // Read the payload in full
-    // Note: this consumes the payload from the request. You won't be able to read it again.
-    let mut writer = Vec::<u8>::new();
-    async_std::io::copy(req.payload_mut(), &mut writer)
-        .await
-        .unwrap();
-    println!("{:?}", writer);
 }
 
 fn parse_version(v: IppVersion) -> Result<printer::IppVersion, ()> {
@@ -81,7 +75,10 @@ fn print_ipp_response(req: &IppRequestResponse) {
     }
 }
 
-async fn handle(printer: &Printer, req: Request<Body>) -> Result<Response<Body>, Infallible> {
+async fn handle(
+    mx_printer: &Arc<RwLock<Printer>>,
+    req: Request<Body>,
+) -> Result<Response<Body>, Infallible> {
     println!("--- Request Received ---");
     let method = req.method().as_str();
     let path = req.uri().path();
@@ -110,7 +107,7 @@ async fn handle(printer: &Printer, req: Request<Body>) -> Result<Response<Body>,
     let parser = IppParser::new(IppReader::new(futures::io::Cursor::new(bytes)));
     let resp_body = match parser.parse().await {
         Ok(mut req) => {
-            let resp = handle_ipp(printer, &mut req).await;
+            let resp = handle_ipp(mx_printer, &mut req).await;
             Body::from(resp.to_bytes().to_vec())
         }
         Err(e) => {
@@ -125,20 +122,24 @@ async fn handle(printer: &Printer, req: Request<Body>) -> Result<Response<Body>,
 
 impl Printer {}
 
-async fn handle_ipp(printer: &Printer, req: &mut IppRequestResponse) -> IppRequestResponse {
+async fn handle_ipp(
+    mx_printer: &Arc<RwLock<Printer>>,
+    req: &mut IppRequestResponse,
+) -> IppRequestResponse {
     print_ipp_request(req).await;
 
     let operation: Operation = Operation::from_u16(req.header().operation_status).unwrap();
     let response: BoxFuture<Result<IppRequestResponse, Infallible>> =
         if operation == Operation::GetPrinterAttributes {
-            handle_get_printer_attributes(printer, req).boxed()
+            handle_get_printer_attributes(mx_printer, req).boxed()
         } else if operation == Operation::ValidateJob {
-            handle_validate_job(printer, req).boxed()
+            handle_validate_job(mx_printer, req).boxed()
+        } else if operation == Operation::PrintJob {
+            handle_print_job(mx_printer, req).boxed()
         } else {
             async {
                 let header = req.header();
                 let builder = IppResponseBuilder::new(
-                    printer,
                     StatusCode::ServerErrorOperationNotSupported,
                     header.request_id,
                 );
@@ -155,7 +156,7 @@ async fn handle_ipp(printer: &Printer, req: &mut IppRequestResponse) -> IppReque
 }
 
 async fn handle_get_printer_attributes(
-    printer: &Printer,
+    mx_printer: &Arc<RwLock<Printer>>,
     req: &IppRequestResponse,
 ) -> Result<IppRequestResponse, Infallible> {
     // Find the OperationAttributes attribute group(s)
@@ -195,20 +196,22 @@ async fn handle_get_printer_attributes(
     );
 
     let header = req.header();
-    let mut builder = IppResponseBuilder::new(printer, StatusCode::SuccessfulOK, header.request_id);
+    let mut builder = IppResponseBuilder::new(StatusCode::SuccessfulOK, header.request_id);
 
-    builder.add_required_printer_attributes();
+    {
+        let printer = mx_printer.read().unwrap();
+        builder.add_required_printer_attributes(printer.deref());
+    }
 
     Ok(builder.build().unwrap())
 }
 
 // https://tools.ietf.org/html/rfc8011#section-4.2.3
 async fn handle_validate_job(
-    printer: &Printer,
+    _mx_printer: &Arc<RwLock<Printer>>,
     req: &IppRequestResponse,
 ) -> Result<IppRequestResponse, Infallible> {
-    let header = req.header();
-    let mut builder = IppResponseBuilder::new(printer, StatusCode::SuccessfulOK, header.request_id);
+    let mut builder = IppResponseBuilder::new(StatusCode::SuccessfulOK, req.header().request_id);
 
     // TODO: Return same Operation Attributes and Unsupported Attributes as Print-Job operation (but no Job Attributes)
     // https://tools.ietf.org/html/rfc8011#section-4.2.3
@@ -216,34 +219,52 @@ async fn handle_validate_job(
     Ok(builder.build().unwrap())
 }
 
-async fn ipp_response(req: &IppRequestResponse) -> Result<IppRequestResponse, Infallible> {
-    let header = req.header();
-    let mut resp = IppRequestResponse::new_response(
-        header.version,
-        StatusCode::SuccessfulOK,
-        header.request_id,
-    );
+// https://tools.ietf.org/html/rfc8011#section-4.2.1
+async fn handle_print_job(
+    mx_printer: &Arc<RwLock<Printer>>,
+    req: &mut IppRequestResponse,
+) -> Result<IppRequestResponse, Infallible> {
+    // Parse the request
+    // TODO: Parse all the important request attributes
 
-    // let attr = IppAttribute::new("")
-    // resp.attributes_mut()
+    // Read the payload in full
+    // Note: this consumes the payload from the request. You won't be able to read it again.
+    let mut data = Vec::<u8>::new();
+    async_std::io::copy(req.payload_mut(), &mut data)
+        .await
+        .unwrap();
+    println!("Payload: {} bytes", data.len());
 
-    Ok(resp)
+    // Create the new job
+    let job = {
+        let mut printer = mx_printer.write().unwrap();
+        printer.new_job(data.as_slice())
+    };
+
+    println!("Created Job: {}", job.uri);
+
+    let mut builder = IppResponseBuilder::new(StatusCode::SuccessfulOK, req.header().request_id);
+
+    builder.add_required_job_attributes(&job);
+
+    Ok(builder.build().unwrap())
 }
 
 #[tokio::main]
 async fn main() {
     let printer = Printer::default();
+    let mx_printer = Arc::new(RwLock::new(printer));
 
     // Construct our SocketAddr to listen on...
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
 
     // Create a MakeService to handle each connection...
     let make_service = make_service_fn(move |_conn| {
-        let printer = printer.clone();
+        let mx_printer = Arc::clone(&mx_printer);
         async move {
             Ok::<_, Infallible>(service_fn(move |req| {
-                let printer = printer.clone();
-                async move { handle(&printer, req).await }
+                let mx_printer = Arc::clone(&mx_printer);
+                async move { handle(&mx_printer, req).await }
             }))
         }
     });
